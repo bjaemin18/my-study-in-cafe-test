@@ -475,7 +475,7 @@ def scroll_to_top(trigger_id):
         height=0,
     )
 
-# 6. 4대 성향 비율 막대 그래프 생성 함수 (모바일 최적화 HTML/CSS 버전)
+# 6. 4대 성향 비율 막대 그래프 생성 함수 (들여쓰기 제거된 HTML/CSS 버전)
 def render_mbti_chart(scores):
     axes = [
         ("쌉싸름 (B)", "달달함 (S)", scores["B"], scores["S"], "#6D4C41", "#E57373"),
@@ -484,31 +484,32 @@ def render_mbti_chart(scores):
         ("장기 체류 (M)", "단기 몰입 (F)", scores["M"], scores["F"], "#5C6BC0", "#4DB6AC")
     ]
 
-    chart_html = """
-    <div style="background-color: #FFFDF9; border: 1.5px solid #D7CCC8; border-radius: 16px; padding: 18px 20px 6px 20px; box-shadow: 0 3px 10px rgba(62, 39, 35, 0.05);">
-    """
-
+    rows = []
     for left_label, right_label, left_val, right_val, left_color, right_color in axes:
         left_pct = round((left_val / 3) * 100)
         right_pct = 100 - left_pct
-
         left_weight = "800" if left_pct > right_pct else "500"
         right_weight = "800" if right_pct > left_pct else "500"
 
-        chart_html += f"""
-        <div style="margin-bottom: 18px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.98rem;">
-                <span style="font-weight: {left_weight}; color: {left_color};">{left_label} <b>{left_pct}%</b></span>
-                <span style="font-weight: {right_weight}; color: {right_color};"><b>{right_pct}%</b> {right_label}</span>
-            </div>
-            <div style="display: flex; width: 100%; height: 22px; border-radius: 999px; overflow: hidden; background-color: #EFEBE9;">
-                <div style="width: {left_pct}%; background-color: {left_color}; transition: width 0.4s ease;"></div>
-                <div style="width: {right_pct}%; background-color: {right_color}; transition: width 0.4s ease;"></div>
-            </div>
-        </div>
-        """
+        row_html = (
+            f'<div style="margin-bottom: 18px;">'
+            f'<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.98rem;">'
+            f'<span style="font-weight: {left_weight}; color: {left_color};">{left_label} <b>{left_pct}%</b></span>'
+            f'<span style="font-weight: {right_weight}; color: {right_color};"><b>{right_pct}%</b> {right_label}</span>'
+            f'</div>'
+            f'<div style="display: flex; width: 100%; height: 22px; border-radius: 999px; overflow: hidden; background-color: #EFEBE9;">'
+            f'<div style="width: {left_pct}%; background-color: {left_color}; transition: width 0.4s ease;"></div>'
+            f'<div style="width: {right_pct}%; background-color: {right_color}; transition: width 0.4s ease;"></div>'
+            f'</div>'
+            f'</div>'
+        )
+        rows.append(row_html)
 
-    chart_html += "</div>"
+    chart_html = (
+        '<div style="background-color: #FFFDF9; border: 1.5px solid #D7CCC8; border-radius: 16px; padding: 18px 20px 6px 20px; box-shadow: 0 3px 10px rgba(62, 39, 35, 0.05);">'
+        + "".join(rows)
+        + '</div>'
+    )
     st.markdown(chart_html, unsafe_allow_html=True)
 
 # 7. 한글 지원 폰트 로더
