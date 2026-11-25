@@ -15,6 +15,56 @@ st.set_page_config(
     layout="centered"
 )
 
+# ==========================================
+# 🔒 비밀번호 잠금 기능 (제출용)
+# ==========================================
+APP_PASSWORD = "pnumis"
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("""
+        <style>
+        .main, .stApp { background-color: #FAF6F0; }
+        .lock-box {
+            background-color: #FFFDF9;
+            border: 2px solid #A1887F;
+            border-radius: 18px;
+            padding: 32px 24px;
+            text-align: center;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 16px rgba(93, 64, 55, 0.1);
+        }
+        button[kind="primary"] {
+            background-color: #A1887F !important;
+            border-color: #A1887F !important;
+            color: white !important;
+        }
+        button[kind="primary"]:hover {
+            background-color: #8D6E63 !important;
+            border-color: #8D6E63 !important;
+        }
+        </style>
+        <div class="lock-box">
+            <h2 style="color: #3E2723; margin-bottom: 10px;">🔒 비밀번호 입력</h2>
+            <p style="color: #5D4037; margin: 0; font-size: 1.05rem;">
+                <b>나의 카공 스타일 & 인생 음료 테스트</b>에 접속하려면 비밀번호를 입력해 주세요.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    pw_input = st.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요", label_visibility="collapsed")
+    if st.button("입장하기", use_container_width=True, type="primary"):
+        if pw_input == APP_PASSWORD:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("❌ 비밀번호가 일치하지 않습니다. 다시 입력해 주세요.")
+    st.stop()
+# ==========================================
+
 # 스타일 커스터마이징
 st.markdown("""
     <style>
@@ -389,7 +439,7 @@ def trigger_confetti():
         height=0,
     )
 
-# 5. 화면 최상단 스크롤 이동 함수 (렌더링 완료 후 확실하게 상단으로 이동)
+# 5. 화면 최상단 스크롤 이동 함수
 def scroll_to_top(trigger_id):
     components.html(
         f"""
@@ -582,7 +632,7 @@ def reset_test():
     st.session_state.play_confetti = False
     st.session_state.scroll_trigger = time.time()
 
-# 10. 최상단 스크롤 기준점 + 상단 타이틀 박스 (연한 갈색 채움 + 하얀 글씨)
+# 10. 최상단 스크롤 기준점 + 상단 타이틀 박스
 st.markdown("""
     <div id="top-anchor" style="position: relative; top: -60px;"></div>
     <div class="title-box">
@@ -617,7 +667,7 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 버튼 클릭 시 안내 문구 출력용 영역 (결과 확인하기 버튼 바로 위)
+# 버튼 클릭 시 안내 문구 출력용 영역
 warning_placeholder = st.empty()
 
 if st.button("✨ 결과 확인하기", use_container_width=True, type="primary"):
@@ -707,12 +757,12 @@ if st.session_state.show_result and not unanswered:
                 f"☕ 나의 카공 스타일 & 인생 음료 테스트 결과!\n"
                 f"유형: [{result_code}] {result_data['name']}\n"
                 f"추천 음료: {result_data['drink']}\n"
-                f"나도 테스트하러 가기 👉 (배포 후 웹앱 주소를 여기에 붙여넣으세요!)"
+                f"나도 테스트하러 가기 👉 (https://bbufvonxyldawgg5ulbacg.streamlit.app/)"
             )
             st.code(share_text, language="text")
             st.caption("👆 위 박스 오른쪽 위의 **복사 아이콘**을 누르면 한 번에 복사됩니다!")
 
-# 다시 검사하기 클릭 후 모든 요소가 그려진 뒤 최상단으로 스크롤 이동
+# 다시 검사하기 클릭 후 최상단으로 스크롤 이동
 if st.session_state.scroll_trigger > 0:
     scroll_to_top(st.session_state.scroll_trigger)
     st.session_state.scroll_trigger = 0
