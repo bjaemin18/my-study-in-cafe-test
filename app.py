@@ -14,12 +14,11 @@ st.set_page_config(
     layout="centered"
 )
 
-# 스타일 커스터마이징 (연한 갈색 강제 적용 + 상단 진행률 고정 + 전체 본문 폰트 확대)
+# 스타일 커스터마이징
 st.markdown("""
     <style>
-    /* 기본 테마 컬러 변수 덮어쓰기 (연한 갈색 #A1887F) */
     :root {
-        --primary-color: #A1887F;
+        --primary-color: #A1887F !important;
     }
     .main, .stApp {
         background-color: #FAF6F0;
@@ -30,7 +29,7 @@ st.markdown("""
         border: 2px solid #D7CCC8;
         border-radius: 18px;
         padding: 28px 24px;
-        margin-bottom: 18px;
+        margin-bottom: 24px;
         text-align: center !important;
         display: flex;
         flex-direction: column;
@@ -54,33 +53,30 @@ st.markdown("""
         text-align: center !important;
         width: 100%;
     }
-    /* 화면 스크롤 시 따라오는 고정(Sticky) 진행률 바 */
-    .sticky-progress-container {
-        position: sticky;
-        top: 2.8rem;
-        z-index: 999;
-        background-color: rgba(250, 246, 240, 0.96);
-        backdrop-filter: blur(6px);
-        padding: 12px 16px;
-        border-radius: 12px;
-        border: 1.5px solid #E0D6CC;
-        box-shadow: 0 4px 10px rgba(62, 39, 35, 0.07);
-        margin-bottom: 20px;
+    /* 진행률 바 박스 (12번 문항과 결과 확인 버튼 사이) */
+    .progress-box {
+        background-color: #FFFDF9;
+        padding: 16px 20px;
+        border-radius: 14px;
+        border: 1.5px solid #D7CCC8;
+        box-shadow: 0 3px 10px rgba(62, 39, 35, 0.05);
+        margin-top: 10px;
+        margin-bottom: 18px;
     }
-    .sticky-progress-text {
-        font-size: 1.05rem;
+    .progress-text {
+        font-size: 1.1rem;
         font-weight: 700;
         color: #4E342E;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
     }
-    .sticky-progress-bg {
+    .progress-bg {
         width: 100%;
-        height: 12px;
+        height: 14px;
         background-color: #E6DDD6;
         border-radius: 999px;
         overflow: hidden;
     }
-    .sticky-progress-fill {
+    .progress-fill {
         height: 100%;
         background-color: #A1887F;
         border-radius: 999px;
@@ -101,24 +97,33 @@ st.markdown("""
         font-weight: 500 !important;
         color: #4E342E !important;
     }
-    /* 라디오 버튼 선택 시 연한 갈색(#A1887F) 강제 적용 */
-    div[data-testid="stRadio"] input[type="radio"] {
-        accent-color: #A1887F !important;
-    }
-    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child {
+    /* 라디오 버튼 선택 시 빨간색을 연한 갈색(#A1887F)으로 강제 덮어쓰기 */
+    div[data-baseweb="radio"] > div:first-child {
         border-color: #A1887F !important;
-        background-color: #FFFDF9 !important;
     }
-    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child > div {
+    div[data-baseweb="radio"] > div:first-child[style*="rgb(255, 75, 75)"],
+    div[data-baseweb="radio"] > div:first-child[style*="#ff4b4b"],
+    div[data-baseweb="radio"] input:checked + div {
         background-color: #A1887F !important;
+        border-color: #A1887F !important;
     }
-    /* Primary 버튼 (결과 확인하기) 연한 갈색 변경 */
+    div[data-baseweb="radio"] > div:first-child > div {
+        background-color: #FFFFFF !important;
+    }
+    /* Primary 버튼 ('✨ 결과 확인하기') 크기 및 글자 확대 + 연한 갈색 */
     button[kind="primary"] {
         background-color: #A1887F !important;
         border-color: #A1887F !important;
         color: white !important;
-        font-size: 1.15rem !important;
-        padding: 0.6rem 1rem !important;
+        padding: 0.9rem 1.5rem !important;
+        min-height: 60px !important;
+        border-radius: 14px !important;
+        box-shadow: 0 4px 12px rgba(141, 110, 99, 0.25) !important;
+    }
+    button[kind="primary"] p {
+        font-size: 1.35rem !important;
+        font-weight: 800 !important;
+        color: white !important;
     }
     button[kind="primary"]:hover {
         background-color: #8D6E63 !important;
@@ -327,7 +332,7 @@ QUESTIONS = [
     }
 ]
 
-# 4. 알록달록한 컨페티 애니메이션 실행 함수 (부모 창에 직접 스크립트 주입하여 확실하게 작동)
+# 4. 알록달록한 컨페티 애니메이션 실행 함수
 def trigger_confetti():
     components.html(
         """
@@ -378,7 +383,28 @@ def trigger_confetti():
         height=0,
     )
 
-# 5. 4대 성향 비율 막대 그래프 생성 함수
+# 5. 화면 최상단 스크롤 이동 함수
+def scroll_to_top():
+    components.html(
+        """
+        <script>
+            (function() {
+                window.parent.scrollTo({ top: 0, behavior: 'smooth' });
+                const mainSection = window.parent.document.querySelector('section.main');
+                if (mainSection) {
+                    mainSection.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+                const stAppView = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
+                if (stAppView) {
+                    stAppView.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            })();
+        </script>
+        """,
+        height=0,
+    )
+
+# 6. 4대 성향 비율 막대 그래프 생성 함수
 def create_mbti_chart(scores):
     axes = [
         ("쌉싸름 (B)", "달달함 (S)", scores["B"], scores["S"], "#6D4C41", "#E57373"),
@@ -432,10 +458,9 @@ def create_mbti_chart(scores):
     )
     return fig
 
-# 6. 한글 지원 폰트 로더 (공유용 이미지 생성 시 한글 깨짐 방지)
+# 7. 한글 지원 폰트 로더
 @st.cache_resource
 def get_korean_font_path():
-    # 시스템에 설치된 한글 폰트 경로 탐색
     candidate_paths = [
         "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
         "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
@@ -446,7 +471,6 @@ def get_korean_font_path():
         if os.path.exists(path):
             return path
 
-    # 없으면 오픈소스 나눔고딕 폰트 1회 다운로드 후 캐시
     local_font = "/tmp/NanumGothicBold.ttf"
     if not os.path.exists(local_font):
         try:
@@ -459,13 +483,12 @@ def get_korean_font_path():
             return None
     return local_font if os.path.exists(local_font) else None
 
-# 7. 공유용 결과 카드 이미지 생성 함수 (유형 코드, 이름, 음료, 환경, 특징 모두 포함)
+# 8. 공유용 결과 카드 이미지 생성 함수
 def generate_share_image(result_code, result_data, img_path):
     width, height = 720, 1040
     canvas = Image.new("RGB", (width, height), "#FAF6F0")
     draw = ImageDraw.Draw(canvas)
 
-    # 외곽 카드 테두리 및 내부 흰색 카드 배경
     draw.rounded_rectangle([24, 24, width - 24, height - 24], radius=28, fill="#FFFDF9", outline="#A1887F", width=4)
 
     font_path = get_korean_font_path()
@@ -477,14 +500,10 @@ def generate_share_image(result_code, result_data, img_path):
     else:
         font_badge = font_title = font_label = font_body = ImageFont.load_default()
 
-    # 상단 유형 코드 배지
     draw.rounded_rectangle([220, 55, 500, 105], radius=20, fill="#A1887F")
     draw.text((360, 80), f"카공 유형 [{result_code}]", fill="#FFFFFF", font=font_badge, anchor="mm")
-
-    # 유형 이름
     draw.text((360, 148), f"\"{result_data['name']}\"", fill="#3E2723", font=font_title, anchor="mm")
 
-    # 중앙 음료 일러스트
     img_size = 360
     img_x = (width - img_size) // 2
     img_y = 190
@@ -494,19 +513,14 @@ def generate_share_image(result_code, result_data, img_path):
     else:
         draw.rounded_rectangle([img_x, img_y, img_x + img_size, img_y + img_size], radius=20, fill="#EFEBE9", outline="#D7CCC8", width=2)
 
-    # 구분선
     draw.line([65, 575, width - 65, 575], fill="#D7CCC8", width=2)
 
-    # 상세 정보 박스 영역 (추천 음료, 작업 환경, 유형 특징)
     y_cursor = 605
-
-    # 1) 추천 인생 음료
     draw.text((70, y_cursor), "☕ 추천 인생 음료", fill="#8D6E63", font=font_label)
     y_cursor += 34
     draw.text((70, y_cursor), result_data['drink'], fill="#3E2723", font=font_badge)
     y_cursor += 55
 
-    # 2) 찰떡 작업 환경
     draw.text((70, y_cursor), "🪑 찰떡 작업 환경", fill="#8D6E63", font=font_label)
     y_cursor += 34
     wrapped_env = textwrap.wrap(result_data['env'], width=28)
@@ -515,7 +529,6 @@ def generate_share_image(result_code, result_data, img_path):
         y_cursor += 30
     y_cursor += 22
 
-    # 3) 유형 특징
     draw.text((70, y_cursor), "💡 유형 특징", fill="#8D6E63", font=font_label)
     y_cursor += 34
     wrapped_desc = textwrap.wrap(result_data['desc'], width=30)
@@ -523,20 +536,21 @@ def generate_share_image(result_code, result_data, img_path):
         draw.text((70, y_cursor), line, fill="#4E342E", font=font_body)
         y_cursor += 30
 
-    # 하단 워터마크
     draw.text((360, height - 52), "☕ 나의 카공 스타일 & 인생 음료 테스트", fill="#A1887F", font=font_body, anchor="mm")
 
     buf = io.BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
 
-# 8. 세션 상태 초기화 및 리셋 함수
+# 9. 세션 상태 초기화 및 리셋 함수
 if "show_result" not in st.session_state:
     st.session_state.show_result = False
 if "show_share" not in st.session_state:
     st.session_state.show_share = False
 if "play_confetti" not in st.session_state:
     st.session_state.play_confetti = False
+if "scroll_top" not in st.session_state:
+    st.session_state.scroll_top = False
 
 def reset_test():
     for idx in range(len(QUESTIONS)):
@@ -544,26 +558,18 @@ def reset_test():
     st.session_state.show_result = False
     st.session_state.show_share = False
     st.session_state.play_confetti = False
+    st.session_state.scroll_top = True
 
-# 9. 메인 화면 UI (모서리 둥근 타이틀 박스)
+# 다시 검사하기 클릭 시 최상단으로 스크롤 실행
+if st.session_state.scroll_top:
+    scroll_to_top()
+    st.session_state.scroll_top = False
+
+# 10. 메인 화면 UI (모서리 둥근 타이틀 박스)
 st.markdown("""
     <div class="title-box">
         <h1>☕ 나의 카공 스타일 & 인생 음료 테스트</h1>
         <p>12가지 질문에 답하고, 나의 <b>카공 유형</b>과 <b>인생 카페 음료</b>를 추천받아 보세요!</p>
-    </div>
-""", unsafe_allow_html=True)
-
-# 상단 고정(Sticky) 실시간 응답 진행률 표시
-user_answers = {idx: st.session_state.get(f"q_{idx}", None) for idx in range(len(QUESTIONS))}
-answered_count = sum(1 for ans in user_answers.values() if ans is not None)
-progress_pct = int((answered_count / len(QUESTIONS)) * 100)
-
-st.markdown(f"""
-    <div class="sticky-progress-container">
-        <div class="sticky-progress-text">📊 전체 응답 진행률: {answered_count} / {len(QUESTIONS)}문항 ({progress_pct}%)</div>
-        <div class="sticky-progress-bg">
-            <div class="sticky-progress-fill" style="width: {progress_pct}%;"></div>
-        </div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -577,9 +583,21 @@ for idx, item in enumerate(QUESTIONS):
     )
     st.write("")
 
-# 실시간 응답 상태 재확인
+# 실시간 응답 상태 집계
 current_answers = {idx: st.session_state.get(f"q_{idx}") for idx in range(len(QUESTIONS))}
+answered_count = sum(1 for ans in current_answers.values() if ans is not None)
+progress_pct = int((answered_count / len(QUESTIONS)) * 100)
 unanswered = [idx + 1 for idx, ans in current_answers.items() if ans is None]
+
+# 12번 질문과 '결과 확인하기' 버튼 사이에 전체 응답 진행률 표시
+st.markdown(f"""
+    <div class="progress-box">
+        <div class="progress-text">📊 전체 응답 진행률: {answered_count} / {len(QUESTIONS)}문항 ({progress_pct}%)</div>
+        <div class="progress-bg">
+            <div class="progress-fill" style="width: {progress_pct}%;"></div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 # 버튼 클릭 시 안내 문구 출력용 영역 (결과 확인하기 버튼 바로 위)
 warning_placeholder = st.empty()
@@ -595,7 +613,7 @@ if st.button("✨ 결과 확인하기", use_container_width=True, type="primary"
         st.session_state.show_share = False
         st.session_state.play_confetti = True
 
-# 10. 결과 화면 출력
+# 11. 결과 화면 출력
 if st.session_state.show_result and not unanswered:
     if st.session_state.play_confetti:
         trigger_confetti()
@@ -643,7 +661,7 @@ if st.session_state.show_result and not unanswered:
 
     st.divider()
 
-    # 11. 검사 결과 공유하기 & 다시 검사하기 버튼
+    # 12. 검사 결과 공유하기 & 다시 검사하기 버튼
     action_col1, action_col2 = st.columns(2)
     with action_col1:
         if st.button("📤 검사 결과 공유하기", use_container_width=True):
