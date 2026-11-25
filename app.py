@@ -438,37 +438,43 @@ def trigger_confetti():
         height=0,
     )
 
-# 5. 화면 최상단 스크롤 이동 함수
+# 5. 화면 최상단 스크롤 이동 함수 (모바일 인앱 브라우저 및 Safari/Chrome 대응 강화)
 def scroll_to_top(trigger_id):
     components.html(
         f"""
         <!-- scroll trigger: {trigger_id} -->
         <script>
             (function() {{
-                function doScroll() {{
-                    const parentDoc = window.parent.document;
-                    const anchor = parentDoc.getElementById('top-anchor');
-                    if (anchor) {{
-                        anchor.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-                    }}
-                    window.parent.scrollTo({{ top: 0, behavior: 'smooth' }});
-                    const selectors = [
-                        'section.main',
-                        '[data-testid="stAppViewContainer"]',
-                        '[data-testid="stMain"]',
-                        '.main'
-                    ];
-                    selectors.forEach(sel => {{
-                        const el = parentDoc.querySelector(sel);
-                        if (el) {{
-                            el.scrollTop = 0;
-                            el.scrollTo({{ top: 0, behavior: 'smooth' }});
+                function forceScrollTop() {{
+                    try {{
+                        const parentWin = window.parent;
+                        const parentDoc = parentWin.document;
+
+                        parentWin.scrollTo(0, 0);
+                        if (parentDoc.documentElement) parentDoc.documentElement.scrollTop = 0;
+                        if (parentDoc.body) parentDoc.body.scrollTop = 0;
+
+                        const anchor = parentDoc.getElementById('top-anchor');
+                        if (anchor) {{
+                            anchor.scrollIntoView({{ behavior: 'auto', block: 'start' }});
                         }}
-                    }});
+
+                        const containers = parentDoc.querySelectorAll(
+                            'section.main, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main, [data-testid="stVerticalBlock"]'
+                        );
+                        containers.forEach(el => {{
+                            if (el.scrollTop > 0) {{
+                                el.scrollTop = 0;
+                            }}
+                        }});
+                    }} catch (e) {{}}
                 }}
-                doScroll();
-                setTimeout(doScroll, 120);
-                setTimeout(doScroll, 350);
+
+                forceScrollTop();
+                requestAnimationFrame(forceScrollTop);
+                setTimeout(forceScrollTop, 50);
+                setTimeout(forceScrollTop, 200);
+                setTimeout(forceScrollTop, 450);
             }})();
         </script>
         """,
