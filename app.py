@@ -1,5 +1,6 @@
 import os
 import io
+import time
 import textwrap
 import requests
 import streamlit as st
@@ -23,22 +24,22 @@ st.markdown("""
     .main, .stApp {
         background-color: #FAF6F0;
     }
-    /* 상단 제목 및 설명 모서리 둥근 박스 */
+    /* 상단 제목 및 설명 모서리 둥근 박스 (연한 갈색 채움 + 하얀색 글씨) */
     .title-box {
-        background-color: #FFFDF9;
-        border: 2px solid #D7CCC8;
+        background-color: #A1887F;
+        border: 2px solid #8D6E63;
         border-radius: 18px;
-        padding: 28px 24px;
+        padding: 30px 24px;
         margin-bottom: 24px;
         text-align: center !important;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 12px rgba(93, 64, 55, 0.06);
+        box-shadow: 0 6px 16px rgba(141, 110, 99, 0.25);
     }
     .title-box h1 {
-        color: #3E2723;
+        color: #FFFFFF !important;
         font-size: 1.85rem;
         margin: 0 0 12px 0;
         font-weight: 800;
@@ -46,12 +47,17 @@ st.markdown("""
         width: 100%;
     }
     .title-box p {
-        color: #5D4037;
+        color: #FFFFFF !important;
         font-size: 1.15rem;
         margin: 0;
         line-height: 1.5;
         text-align: center !important;
         width: 100%;
+        opacity: 0.96;
+    }
+    .title-box b {
+        color: #FFF8E1 !important;
+        font-weight: 800;
     }
     /* 진행률 바 박스 (12번 문항과 결과 확인 버튼 사이) */
     .progress-box {
@@ -97,7 +103,7 @@ st.markdown("""
         font-weight: 500 !important;
         color: #4E342E !important;
     }
-    /* 라디오 버튼 선택 시 빨간색을 연한 갈색(#A1887F)으로 강제 덮어쓰기 */
+    /* 라디오 버튼 선택 시 연한 갈색(#A1887F) 적용 */
     div[data-baseweb="radio"] > div:first-child {
         border-color: #A1887F !important;
     }
@@ -383,22 +389,38 @@ def trigger_confetti():
         height=0,
     )
 
-# 5. 화면 최상단 스크롤 이동 함수
-def scroll_to_top():
+# 5. 화면 최상단 스크롤 이동 함수 (렌더링 완료 후 확실하게 상단으로 이동)
+def scroll_to_top(trigger_id):
     components.html(
-        """
+        f"""
+        <!-- scroll trigger: {trigger_id} -->
         <script>
-            (function() {
-                window.parent.scrollTo({ top: 0, behavior: 'smooth' });
-                const mainSection = window.parent.document.querySelector('section.main');
-                if (mainSection) {
-                    mainSection.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-                const stAppView = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
-                if (stAppView) {
-                    stAppView.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            })();
+            (function() {{
+                function doScroll() {{
+                    const parentDoc = window.parent.document;
+                    const anchor = parentDoc.getElementById('top-anchor');
+                    if (anchor) {{
+                        anchor.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                    }}
+                    window.parent.scrollTo({{ top: 0, behavior: 'smooth' }});
+                    const selectors = [
+                        'section.main',
+                        '[data-testid="stAppViewContainer"]',
+                        '[data-testid="stMain"]',
+                        '.main'
+                    ];
+                    selectors.forEach(sel => {{
+                        const el = parentDoc.querySelector(sel);
+                        if (el) {{
+                            el.scrollTop = 0;
+                            el.scrollTo({{ top: 0, behavior: 'smooth' }});
+                        }}
+                    }});
+                }}
+                doScroll();
+                setTimeout(doScroll, 120);
+                setTimeout(doScroll, 350);
+            }})();
         </script>
         """,
         height=0,
@@ -549,8 +571,8 @@ if "show_share" not in st.session_state:
     st.session_state.show_share = False
 if "play_confetti" not in st.session_state:
     st.session_state.play_confetti = False
-if "scroll_top" not in st.session_state:
-    st.session_state.scroll_top = False
+if "scroll_trigger" not in st.session_state:
+    st.session_state.scroll_trigger = 0
 
 def reset_test():
     for idx in range(len(QUESTIONS)):
@@ -558,15 +580,11 @@ def reset_test():
     st.session_state.show_result = False
     st.session_state.show_share = False
     st.session_state.play_confetti = False
-    st.session_state.scroll_top = True
+    st.session_state.scroll_trigger = time.time()
 
-# 다시 검사하기 클릭 시 최상단으로 스크롤 실행
-if st.session_state.scroll_top:
-    scroll_to_top()
-    st.session_state.scroll_top = False
-
-# 10. 메인 화면 UI (모서리 둥근 타이틀 박스)
+# 10. 최상단 스크롤 기준점 + 상단 타이틀 박스 (연한 갈색 채움 + 하얀 글씨)
 st.markdown("""
+    <div id="top-anchor" style="position: relative; top: -60px;"></div>
     <div class="title-box">
         <h1>☕ 나의 카공 스타일 & 인생 음료 테스트</h1>
         <p>12가지 질문에 답하고, 나의 <b>카공 유형</b>과 <b>인생 카페 음료</b>를 추천받아 보세요!</p>
@@ -693,3 +711,8 @@ if st.session_state.show_result and not unanswered:
             )
             st.code(share_text, language="text")
             st.caption("👆 위 박스 오른쪽 위의 **복사 아이콘**을 누르면 한 번에 복사됩니다!")
+
+# 다시 검사하기 클릭 후 모든 요소가 그려진 뒤 최상단으로 스크롤 이동
+if st.session_state.scroll_trigger > 0:
+    scroll_to_top(st.session_state.scroll_trigger)
+    st.session_state.scroll_trigger = 0
