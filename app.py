@@ -1,5 +1,7 @@
 import os
 import io
+import textwrap
+import requests
 import streamlit as st
 import streamlit.components.v1 as components
 import plotly.graph_objects as go
@@ -12,24 +14,23 @@ st.set_page_config(
     layout="centered"
 )
 
-# 스타일 커스터마이징 (따뜻한 카페 배경 + 밝은 갈색 포인트 테마 + 상단 타이틀 박스 정중앙 정렬)
+# 스타일 커스터마이징 (연한 갈색 강제 적용 + 상단 진행률 고정 + 전체 본문 폰트 확대)
 st.markdown("""
     <style>
+    /* 기본 테마 컬러 변수 덮어쓰기 (연한 갈색 #A1887F) */
+    :root {
+        --primary-color: #A1887F;
+    }
     .main, .stApp {
         background-color: #FAF6F0;
     }
-    .stRadio > label {
-        font-weight: bold;
-        font-size: 1.05rem;
-        color: #3E2723;
-    }
-    /* 상단 제목 및 설명 모서리 둥근 박스 (강제 중앙 정렬 적용) */
+    /* 상단 제목 및 설명 모서리 둥근 박스 */
     .title-box {
         background-color: #FFFDF9;
         border: 2px solid #D7CCC8;
         border-radius: 18px;
         padding: 28px 24px;
-        margin-bottom: 22px;
+        margin-bottom: 18px;
         text-align: center !important;
         display: flex;
         flex-direction: column;
@@ -47,36 +48,81 @@ st.markdown("""
     }
     .title-box p {
         color: #5D4037;
-        font-size: 1.05rem;
+        font-size: 1.15rem;
         margin: 0;
         line-height: 1.5;
         text-align: center !important;
         width: 100%;
     }
-    /* 진행률 바 밝은 갈색 변경 */
-    div[data-testid="stProgress"] > div > div > div > div {
-        background-color: #A1887F !important;
+    /* 화면 스크롤 시 따라오는 고정(Sticky) 진행률 바 */
+    .sticky-progress-container {
+        position: sticky;
+        top: 2.8rem;
+        z-index: 999;
+        background-color: rgba(250, 246, 240, 0.96);
+        backdrop-filter: blur(6px);
+        padding: 12px 16px;
+        border-radius: 12px;
+        border: 1.5px solid #E0D6CC;
+        box-shadow: 0 4px 10px rgba(62, 39, 35, 0.07);
+        margin-bottom: 20px;
     }
-    /* 라디오 버튼 선택 색상 밝은 갈색 변경 */
-    div[data-testid="stRadio"] input[type="radio"]:checked + div {
-        background-color: #A1887F !important;
-        border-color: #A1887F !important;
+    .sticky-progress-text {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #4E342E;
+        margin-bottom: 6px;
+    }
+    .sticky-progress-bg {
+        width: 100%;
+        height: 12px;
+        background-color: #E6DDD6;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .sticky-progress-fill {
+        height: 100%;
+        background-color: #A1887F;
+        border-radius: 999px;
+        transition: width 0.3s ease;
+    }
+    /* 제목 제외 본문/질문/선택지 글자 크기 확대 */
+    .stMarkdown p, .stMarkdown li {
+        font-size: 1.12rem !important;
+        line-height: 1.6 !important;
+    }
+    div[data-testid="stRadio"] > label p {
+        font-weight: 800 !important;
+        font-size: 1.2rem !important;
+        color: #3E2723 !important;
+    }
+    div[data-testid="stRadio"] div[role="radiogroup"] label p {
+        font-size: 1.1rem !important;
+        font-weight: 500 !important;
+        color: #4E342E !important;
+    }
+    /* 라디오 버튼 선택 시 연한 갈색(#A1887F) 강제 적용 */
+    div[data-testid="stRadio"] input[type="radio"] {
+        accent-color: #A1887F !important;
     }
     div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child {
         border-color: #A1887F !important;
+        background-color: #FFFDF9 !important;
     }
-    /* Primary 버튼 (결과 확인하기) 밝은 갈색 변경 */
+    div[data-testid="stRadio"] label[data-baseweb="radio"] > div:first-child > div {
+        background-color: #A1887F !important;
+    }
+    /* Primary 버튼 (결과 확인하기) 연한 갈색 변경 */
     button[kind="primary"] {
         background-color: #A1887F !important;
         border-color: #A1887F !important;
         color: white !important;
+        font-size: 1.15rem !important;
+        padding: 0.6rem 1rem !important;
     }
     button[kind="primary"]:hover {
         background-color: #8D6E63 !important;
         border-color: #8D6E63 !important;
-    }
-    div[data-testid="stVerticalBlock"] > div {
-        border-radius: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -281,39 +327,52 @@ QUESTIONS = [
     }
 ]
 
-# 4. 알록달록한 컨페티 애니메이션 실행 함수
+# 4. 알록달록한 컨페티 애니메이션 실행 함수 (부모 창에 직접 스크립트 주입하여 확실하게 작동)
 def trigger_confetti():
     components.html(
         """
-        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
         <script>
-            const duration = 1100;
-            const end = Date.now() + duration;
+            (function() {
+                const parentDoc = window.parent.document;
+                const launch = () => {
+                    const duration = 1100;
+                    const end = Date.now() + duration;
+                    (function frame() {
+                        window.parent.confetti({
+                            particleCount: 7,
+                            angle: 60,
+                            spread: 60,
+                            origin: { x: 0, y: 0.7 },
+                            ticks: 95,
+                            gravity: 1.35,
+                            zIndex: 999999,
+                            colors: ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF9F1C']
+                        });
+                        window.parent.confetti({
+                            particleCount: 7,
+                            angle: 120,
+                            spread: 60,
+                            origin: { x: 1, y: 0.7 },
+                            ticks: 95,
+                            gravity: 1.35,
+                            zIndex: 999999,
+                            colors: ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF9F1C']
+                        });
+                        if (Date.now() < end) {
+                            requestAnimationFrame(frame);
+                        }
+                    }());
+                };
 
-            (function frame() {
-                window.parent.confetti({
-                    particleCount: 6,
-                    angle: 60,
-                    spread: 55,
-                    origin: { x: 0 },
-                    ticks: 90,
-                    gravity: 1.35,
-                    colors: ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF9F1C']
-                });
-                window.parent.confetti({
-                    particleCount: 6,
-                    angle: 120,
-                    spread: 55,
-                    origin: { x: 1 },
-                    ticks: 90,
-                    gravity: 1.35,
-                    colors: ['#FF6B6B', '#FFD93D', '#6BCB77', '#4D96FF', '#FF9F1C']
-                });
-
-                if (Date.now() < end) {
-                    requestAnimationFrame(frame);
+                if (window.parent.confetti) {
+                    launch();
+                } else {
+                    const script = parentDoc.createElement('script');
+                    script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+                    script.onload = launch;
+                    parentDoc.head.appendChild(script);
                 }
-            }());
+            })();
         </script>
         """,
         height=0,
@@ -344,7 +403,7 @@ def create_mbti_chart(scores):
             text=f"{left_label} {left_pct}%" if left_pct > 0 else "",
             textposition='inside',
             insidetextanchor='middle',
-            textfont=dict(color='white', size=13, family="sans-serif"),
+            textfont=dict(color='white', size=14, family="sans-serif"),
             hoverinfo='none'
         ))
 
@@ -357,46 +416,121 @@ def create_mbti_chart(scores):
             text=f"{right_label} {right_pct}%" if right_pct > 0 else "",
             textposition='inside',
             insidetextanchor='middle',
-            textfont=dict(color='white', size=13, family="sans-serif"),
+            textfont=dict(color='white', size=14, family="sans-serif"),
             hoverinfo='none'
         ))
 
     fig.update_layout(
         barmode='stack',
         xaxis=dict(range=[0, 100], showticklabels=False, showgrid=False, zeroline=False),
-        yaxis=dict(tickfont=dict(size=13, color="#3E2723"), showgrid=False),
+        yaxis=dict(tickfont=dict(size=14, color="#3E2723"), showgrid=False),
         showlegend=False,
-        height=280,
+        height=290,
         margin=dict(l=10, r=10, t=10, b=10),
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)'
     )
     return fig
 
-# 6. 공유용 결과 카드 이미지 생성 함수
-def generate_share_image(result_code, img_path):
-    canvas = Image.new("RGB", (600, 680), "#FAF6F0")
+# 6. 한글 지원 폰트 로더 (공유용 이미지 생성 시 한글 깨짐 방지)
+@st.cache_resource
+def get_korean_font_path():
+    # 시스템에 설치된 한글 폰트 경로 탐색
+    candidate_paths = [
+        "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf",
+        "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+        "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+        "C:/Windows/Fonts/malgun.ttf"
+    ]
+    for path in candidate_paths:
+        if os.path.exists(path):
+            return path
+
+    # 없으면 오픈소스 나눔고딕 폰트 1회 다운로드 후 캐시
+    local_font = "/tmp/NanumGothicBold.ttf"
+    if not os.path.exists(local_font):
+        try:
+            url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
+            res = requests.get(url, timeout=5)
+            if res.status_code == 200:
+                with open(local_font, "wb") as f:
+                    f.write(res.content)
+        except Exception:
+            return None
+    return local_font if os.path.exists(local_font) else None
+
+# 7. 공유용 결과 카드 이미지 생성 함수 (유형 코드, 이름, 음료, 환경, 특징 모두 포함)
+def generate_share_image(result_code, result_data, img_path):
+    width, height = 720, 1040
+    canvas = Image.new("RGB", (width, height), "#FAF6F0")
     draw = ImageDraw.Draw(canvas)
-    draw.rectangle([20, 20, 580, 660], outline="#8D6E63", width=4)
 
-    if img_path and os.path.exists(img_path):
-        drink_img = Image.open(img_path).convert("RGB")
-        drink_img = drink_img.resize((420, 420))
-        canvas.paste(drink_img, (90, 60))
+    # 외곽 카드 테두리 및 내부 흰색 카드 배경
+    draw.rounded_rectangle([24, 24, width - 24, height - 24], radius=28, fill="#FFFDF9", outline="#A1887F", width=4)
+
+    font_path = get_korean_font_path()
+    if font_path:
+        font_badge = ImageFont.truetype(font_path, 26)
+        font_title = ImageFont.truetype(font_path, 40)
+        font_label = ImageFont.truetype(font_path, 23)
+        font_body = ImageFont.truetype(font_path, 21)
     else:
-        draw.rectangle([90, 60, 510, 480], fill="#EFEBE9", outline="#BCAAA4", width=2)
+        font_badge = font_title = font_label = font_body = ImageFont.load_default()
 
-    font_large = ImageFont.load_default(size=42)
-    font_small = ImageFont.load_default(size=22)
+    # 상단 유형 코드 배지
+    draw.rounded_rectangle([220, 55, 500, 105], radius=20, fill="#A1887F")
+    draw.text((360, 80), f"카공 유형 [{result_code}]", fill="#FFFFFF", font=font_badge, anchor="mm")
 
-    draw.text((300, 535), f"TYPE : [ {result_code} ]", fill="#3E2723", font=font_large, anchor="mm")
-    draw.text((300, 595), "My Cafe Study & Drink Test", fill="#6D4C41", font=font_small, anchor="mm")
+    # 유형 이름
+    draw.text((360, 148), f"\"{result_data['name']}\"", fill="#3E2723", font=font_title, anchor="mm")
+
+    # 중앙 음료 일러스트
+    img_size = 360
+    img_x = (width - img_size) // 2
+    img_y = 190
+    if img_path and os.path.exists(img_path):
+        drink_img = Image.open(img_path).convert("RGB").resize((img_size, img_size))
+        canvas.paste(drink_img, (img_x, img_y))
+    else:
+        draw.rounded_rectangle([img_x, img_y, img_x + img_size, img_y + img_size], radius=20, fill="#EFEBE9", outline="#D7CCC8", width=2)
+
+    # 구분선
+    draw.line([65, 575, width - 65, 575], fill="#D7CCC8", width=2)
+
+    # 상세 정보 박스 영역 (추천 음료, 작업 환경, 유형 특징)
+    y_cursor = 605
+
+    # 1) 추천 인생 음료
+    draw.text((70, y_cursor), "☕ 추천 인생 음료", fill="#8D6E63", font=font_label)
+    y_cursor += 34
+    draw.text((70, y_cursor), result_data['drink'], fill="#3E2723", font=font_badge)
+    y_cursor += 55
+
+    # 2) 찰떡 작업 환경
+    draw.text((70, y_cursor), "🪑 찰떡 작업 환경", fill="#8D6E63", font=font_label)
+    y_cursor += 34
+    wrapped_env = textwrap.wrap(result_data['env'], width=28)
+    for line in wrapped_env:
+        draw.text((70, y_cursor), line, fill="#3E2723", font=font_body)
+        y_cursor += 30
+    y_cursor += 22
+
+    # 3) 유형 특징
+    draw.text((70, y_cursor), "💡 유형 특징", fill="#8D6E63", font=font_label)
+    y_cursor += 34
+    wrapped_desc = textwrap.wrap(result_data['desc'], width=30)
+    for line in wrapped_desc:
+        draw.text((70, y_cursor), line, fill="#4E342E", font=font_body)
+        y_cursor += 30
+
+    # 하단 워터마크
+    draw.text((360, height - 52), "☕ 나의 카공 스타일 & 인생 음료 테스트", fill="#A1887F", font=font_body, anchor="mm")
 
     buf = io.BytesIO()
     canvas.save(buf, format="PNG")
     return buf.getvalue()
 
-# 7. 세션 상태 초기화 및 리셋 함수
+# 8. 세션 상태 초기화 및 리셋 함수
 if "show_result" not in st.session_state:
     st.session_state.show_result = False
 if "show_share" not in st.session_state:
@@ -411,7 +545,7 @@ def reset_test():
     st.session_state.show_share = False
     st.session_state.play_confetti = False
 
-# 8. 메인 화면 UI (모서리 둥근 타이틀 박스)
+# 9. 메인 화면 UI (모서리 둥근 타이틀 박스)
 st.markdown("""
     <div class="title-box">
         <h1>☕ 나의 카공 스타일 & 인생 음료 테스트</h1>
@@ -419,17 +553,24 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# 사용자 응답 수집 및 상단 실시간 응답 진행률 표시
+# 상단 고정(Sticky) 실시간 응답 진행률 표시
 user_answers = {idx: st.session_state.get(f"q_{idx}", None) for idx in range(len(QUESTIONS))}
 answered_count = sum(1 for ans in user_answers.values() if ans is not None)
-progress_ratio = answered_count / len(QUESTIONS)
-st.progress(progress_ratio, text=f"📊 전체 응답 진행률: **{answered_count} / {len(QUESTIONS)}문항** ({int(progress_ratio * 100)}%)")
-st.divider()
+progress_pct = int((answered_count / len(QUESTIONS)) * 100)
 
-# 12개 질문 라디오 버튼 출력
+st.markdown(f"""
+    <div class="sticky-progress-container">
+        <div class="sticky-progress-text">📊 전체 응답 진행률: {answered_count} / {len(QUESTIONS)}문항 ({progress_pct}%)</div>
+        <div class="sticky-progress-bg">
+            <div class="sticky-progress-fill" style="width: {progress_pct}%;"></div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
+# 12개 질문 라디오 버튼 출력 (모든 질문 볼드체)
 for idx, item in enumerate(QUESTIONS):
     st.radio(
-        label=item["q"],
+        label=f"**{item['q']}**",
         options=item["options"],
         index=None,
         key=f"q_{idx}"
@@ -454,7 +595,7 @@ if st.button("✨ 결과 확인하기", use_container_width=True, type="primary"
         st.session_state.show_share = False
         st.session_state.play_confetti = True
 
-# 9. 결과 화면 출력
+# 10. 결과 화면 출력
 if st.session_state.show_result and not unanswered:
     if st.session_state.play_confetti:
         trigger_confetti()
@@ -480,7 +621,6 @@ if st.session_state.show_result and not unanswered:
 
     col1, col2 = st.columns([1, 1.3])
 
-    # 저장해 두신 images/유형이름.png 파일을 자동으로 불러옵니다.
     img_png = f"images/{result_code}.png"
     img_jpg = f"images/{result_code}.jpg"
     valid_img_path = img_png if os.path.exists(img_png) else (img_jpg if os.path.exists(img_jpg) else None)
@@ -503,7 +643,7 @@ if st.session_state.show_result and not unanswered:
 
     st.divider()
 
-    # 10. 검사 결과 공유하기 & 다시 검사하기 버튼
+    # 11. 검사 결과 공유하기 & 다시 검사하기 버튼
     action_col1, action_col2 = st.columns(2)
     with action_col1:
         if st.button("📤 검사 결과 공유하기", use_container_width=True):
@@ -516,7 +656,7 @@ if st.session_state.show_result and not unanswered:
 
         with share_col1:
             st.markdown("#### 🖼️ 사진으로 저장하기")
-            card_bytes = generate_share_image(result_code, valid_img_path)
+            card_bytes = generate_share_image(result_code, result_data, valid_img_path)
             st.download_button(
                 label="📥 결과 이미지 다운로드 (PNG)",
                 data=card_bytes,
