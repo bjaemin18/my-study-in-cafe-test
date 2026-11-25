@@ -5,7 +5,6 @@ import textwrap
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
-import plotly.graph_objects as go
 from PIL import Image, ImageDraw, ImageFont
 
 # 1. 페이지 기본 설정
@@ -476,8 +475,8 @@ def scroll_to_top(trigger_id):
         height=0,
     )
 
-# 6. 4대 성향 비율 막대 그래프 생성 함수
-def create_mbti_chart(scores):
+# 6. 4대 성향 비율 막대 그래프 생성 함수 (모바일 최적화 HTML/CSS 버전)
+def render_mbti_chart(scores):
     axes = [
         ("쌉싸름 (B)", "달달함 (S)", scores["B"], scores["S"], "#6D4C41", "#E57373"),
         ("고카페인 (H)", "저카페인 (L)", scores["H"], scores["L"], "#4E342E", "#81C784"),
@@ -485,50 +484,32 @@ def create_mbti_chart(scores):
         ("장기 체류 (M)", "단기 몰입 (F)", scores["M"], scores["F"], "#5C6BC0", "#4DB6AC")
     ]
 
-    fig = go.Figure()
+    chart_html = """
+    <div style="background-color: #FFFDF9; border: 1.5px solid #D7CCC8; border-radius: 16px; padding: 18px 20px 6px 20px; box-shadow: 0 3px 10px rgba(62, 39, 35, 0.05);">
+    """
 
-    for left_label, right_label, left_val, right_val, left_color, right_color in reversed(axes):
+    for left_label, right_label, left_val, right_val, left_color, right_color in axes:
         left_pct = round((left_val / 3) * 100)
         right_pct = 100 - left_pct
-        axis_title = f"{left_label}  vs  {right_label}"
 
-        fig.add_trace(go.Bar(
-            y=[axis_title],
-            x=[left_pct],
-            name=left_label,
-            orientation='h',
-            marker=dict(color=left_color, line=dict(color='white', width=1)),
-            text=f"{left_label} {left_pct}%" if left_pct > 0 else "",
-            textposition='inside',
-            insidetextanchor='middle',
-            textfont=dict(color='white', size=14, family="sans-serif"),
-            hoverinfo='none'
-        ))
+        left_weight = "800" if left_pct > right_pct else "500"
+        right_weight = "800" if right_pct > left_pct else "500"
 
-        fig.add_trace(go.Bar(
-            y=[axis_title],
-            x=[right_pct],
-            name=right_label,
-            orientation='h',
-            marker=dict(color=right_color, line=dict(color='white', width=1)),
-            text=f"{right_label} {right_pct}%" if right_pct > 0 else "",
-            textposition='inside',
-            insidetextanchor='middle',
-            textfont=dict(color='white', size=14, family="sans-serif"),
-            hoverinfo='none'
-        ))
+        chart_html += f"""
+        <div style="margin-bottom: 18px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.98rem;">
+                <span style="font-weight: {left_weight}; color: {left_color};">{left_label} <b>{left_pct}%</b></span>
+                <span style="font-weight: {right_weight}; color: {right_color};"><b>{right_pct}%</b> {right_label}</span>
+            </div>
+            <div style="display: flex; width: 100%; height: 22px; border-radius: 999px; overflow: hidden; background-color: #EFEBE9;">
+                <div style="width: {left_pct}%; background-color: {left_color}; transition: width 0.4s ease;"></div>
+                <div style="width: {right_pct}%; background-color: {right_color}; transition: width 0.4s ease;"></div>
+            </div>
+        </div>
+        """
 
-    fig.update_layout(
-        barmode='stack',
-        xaxis=dict(range=[0, 100], showticklabels=False, showgrid=False, zeroline=False),
-        yaxis=dict(tickfont=dict(size=14, color="#3E2723"), showgrid=False),
-        showlegend=False,
-        height=290,
-        margin=dict(l=10, r=10, t=10, b=10),
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    return fig
+    chart_html += "</div>"
+    st.markdown(chart_html, unsafe_allow_html=True)
 
 # 7. 한글 지원 폰트 로더
 @st.cache_resource
@@ -724,8 +705,7 @@ if st.session_state.show_result and not unanswered:
 
     st.write("")
     st.markdown("### 📊 나의 4대 카공 성향 비율")
-    fig = create_mbti_chart(scores)
-    st.plotly_chart(fig, use_container_width=True)
+    render_mbti_chart(scores)
 
     st.divider()
 
@@ -757,7 +737,7 @@ if st.session_state.show_result and not unanswered:
                 f"☕ 나의 카공 스타일 & 인생 음료 테스트 결과!\n"
                 f"유형: [{result_code}] {result_data['name']}\n"
                 f"추천 음료: {result_data['drink']}\n"
-                f"나도 테스트하러 가기 👉 (https://bbufvonxyldawgg5ulbacg.streamlit.app/)"
+                f"나도 테스트하러 가기 👉 https://bbufvonxyldawgg5ulbacg.streamlit.app/"
             )
             st.code(share_text, language="text")
             st.caption("👆 위 박스 오른쪽 위의 **복사 아이콘**을 누르면 한 번에 복사됩니다!")
